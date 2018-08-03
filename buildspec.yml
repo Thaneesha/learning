@@ -1,0 +1,9 @@
+env
+  variables:
+    build_version: "0.1"
+phases:
+  build:
+    commands:
+      - git checkout master
+      - git merge dev
+      - git push origin master 
