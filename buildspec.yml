@@ -8,6 +8,8 @@ phases:
       - apt-get install git
   build:
     commands:
-      - git checkout master
-      - git merge dev
-      - git push origin master 
+      - echo "Building firts Application"
+  artifacts:
+    files:
+      - first.py
+    discard-paths: yes
