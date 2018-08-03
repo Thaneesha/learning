@@ -2,6 +2,9 @@ env
   variables:
     build_version: "0.1"
 phases:
+  install:
+    commands:
+      - apt-get install git
   build:
     commands:
       - git checkout master
