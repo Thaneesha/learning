@@ -27,35 +27,94 @@ Conditions:
 # Resources
 ###############################################################################
 Resources:
-
-  ##########################################################
-  # CloudFormation IAM Role
-  ##########################################################
   CFNRole:
-    Type: AWS::CloudFormation::Stack
+    Type: AWS::IAM::Role
     Properties:
-      TemplateURL: !Sub "${CloudFormTemplatePath}/iam-cfn-role.yml"
-      Parameters:
-        ArtifactBucket: !Ref ArtifactBucket
-        Env: !Ref Env
-        ProjectName: !Ref ProjectName
-
-  ##########################################################
-  # Build Configurations
-  ##########################################################
-  Build:
-    Type: AWS::CloudFormation::Stack
-    Condition: CreateBuildResources
+      RoleName: !Sub ${ProjectName}-${Env}-cfn
+      Path: "/"
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - cloudformation.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Policies:
+      - PolicyName: root
+        PolicyDocument: {
+          "Statement": [
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "s3:GetObject"
+                        ],
+                        "Resource": [
+                          !Sub "arn:aws:s3:::${ArtifactBucket}",
+                          !Sub "arn:aws:s3:::${ArtifactBucket}/*"
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "logs:CreateLogGroup",
+                          "logs:CreateLogStream",
+                          "logs:PutLogEvents"
+                        ],
+                        "Resource": "arn:aws:logs:*"
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "cloudfront:*"
+                        ],
+                        "Resource": "*"
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "route53:ListResourceRecordSets",
+                          "route53:ListHostedZonesByName",
+                          "route53:ListHostedZones",
+                          "route53:GetHostedZone",
+                          "route53:ChangeResourceRecordSets",
+                          "route53:GetChange"
+                        ],
+                        "Resource": "*"
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "s3:*"
+                        ],
+                        "Resource": [
+                          !Sub "arn:aws:s3:::${DomainPrefix}${Env}.${Domain}",
+                          !Sub "arn:aws:s3:::${DomainPrefix}${Env}.${Domain}/*"
+                        ]
+                      }
+                      ]
+                    }
+  BuildConfig:
+    Type: AWS::CodeBuild::Project
     Properties:
-      TemplateURL: !Sub "${CloudFormTemplatePath}/codebuild.yml"
-      Parameters:
-        BuildStep: "Build"
-        BuildSpecFile: "buildspec.yml"
-        ProjectName: !Ref ProjectName
-        Role: !Ref Role
-        RepoName: !Ref RepoName
-        ArtifactBucket: !Ref ArtifactBucket
-
+      Name: !Sub ${ProjectName}-codebuild-${BuildStep}
+      ServiceRole: !Ref Role
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: !Ref CodeBuildImageType 
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: PROJECT_NAME
+          Value: !Ref ProjectName
+        - Name: REPO_NAME
+          Value: !Ref RepoName
+        - Name: ENV
+          Value: !Ref Env
+      Source:
+        BuildSpec: !Ref BuildSpecFile
+        Type: CODEPIPELINE
   ##########################################################
   # Pipeline Configuration
   ##########################################################
