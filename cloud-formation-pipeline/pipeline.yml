@@ -4,20 +4,33 @@ Description: AWS CloudFormation Template for frontend build pipeline
 Parameters:
   ProjectName:
     Type: String
+    Default: "first-codepipeline"
   GitHubOAuthToken:
     Type: String
   RepoName:
     Type: String
+    Default: "codepipeline"
   ArtifactBucket:
     Type: String
-  Role:
-    Type: String
+    Default: "jenkins-test-8k"
   Env:
     Type: String
+    Default: "dev"
   CloudFormTemplatePath:
     Type: String
+    Default: "cloud-formation-template"
   Branch:
     Type: String
+    Default: "master"
+  CodeBuildImageType:
+    Type: String
+    Default: "aws/codebuild/java:openjdk-8"
+  BuildStep:
+    Type: String
+    Default: "step1"
+  BuildSpecFile:
+    Type: String
+    Default: "buildspec.yml"
 
 Conditions:
   CreateBuildResources: !Equals [ !Ref Env, dev ]
