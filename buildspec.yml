@@ -1,0 +1,15 @@
+version: 0.2
+env:
+  variables:
+    build_version: "0.1"
+phases:
+  install:
+    commands:
+      - apt-get install git
+  build:
+    commands:
+      - echo "Building firts Application"
+artifacts:
+  files:
+    - first.py
+  discard-paths: yes
