@@ -88,8 +88,8 @@ Resources:
                           "s3:*"
                         ],
                         "Resource": [
-                          !Sub "arn:aws:s3:::${DomainPrefix}${Env}.${Domain}",
-                          !Sub "arn:aws:s3:::${DomainPrefix}${Env}.${Domain}/*"
+                          !Sub "arn:aws:s3:::${Env}",
+                          !Sub "arn:aws:s3:::${Env}/*"
                         ]
                       }
                       ]
