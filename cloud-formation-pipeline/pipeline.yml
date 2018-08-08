@@ -1,0 +1,143 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS CloudFormation Template for frontend build pipeline
+
+Parameters:
+  ProjectName:
+    Type: String
+  GitHubOAuthToken:
+    Type: String
+  RepoName:
+    Type: String
+  ArtifactBucket:
+    Type: String
+  Role:
+    Type: String
+  Env:
+    Type: String
+  CloudFormTemplatePath:
+    Type: String
+  Branch:
+    Type: String
+
+Conditions:
+  CreateBuildResources: !Equals [ !Ref Env, dev ]
+  NoBuildResources: !Not [!Equals [ !Ref Env, dev ]]
+
+###############################################################################
+# Resources
+###############################################################################
+Resources:
+
+  ##########################################################
+  # CloudFormation IAM Role
+  ##########################################################
+  CFNRole:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "${CloudFormTemplatePath}/iam-cfn-role.yml"
+      Parameters:
+        ArtifactBucket: !Ref ArtifactBucket
+        Env: !Ref Env
+        ProjectName: !Ref ProjectName
+
+  ##########################################################
+  # Build Configurations
+  ##########################################################
+  Build:
+    Type: AWS::CloudFormation::Stack
+    Condition: CreateBuildResources
+    Properties:
+      TemplateURL: !Sub "${CloudFormTemplatePath}/codebuild.yml"
+      Parameters:
+        BuildStep: "Build"
+        BuildSpecFile: "buildspec.yml"
+        ProjectName: !Ref ProjectName
+        Role: !Ref Role
+        RepoName: !Ref RepoName
+        ArtifactBucket: !Ref ArtifactBucket
+
+  ##########################################################
+  # Pipeline Configuration
+  ##########################################################
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Sub ${ProjectName}-${Env}
+      RoleArn: !Ref Role
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactBucket
+      Stages:
+
+      ##########################################################
+      # Source Stage
+      ##########################################################
+      - Name: Source
+        Actions:
+
+        # CODE SOURCE
+        - Name: Source
+          InputArtifacts: []
+          ActionTypeId:
+            Category: Source
+            Owner: ThirdParty
+            Version: '1'
+            Provider: GitHub
+          OutputArtifacts:
+          - Name: source-output
+          Configuration:
+            Owner: cloudezrx
+            Repo: !Ref RepoName
+            Branch: !Ref Branch
+            OAuthToken: !Ref GitHubOAuthToken
+          RunOrder: 1
+
+
+      ##########################################################
+      # Build Stage
+      ##########################################################
+      - Name: Build
+        Actions:
+
+        ##### BUILD STEP #####
+        - !If
+          - CreateBuildResources
+          - Name: Build
+            InputArtifacts:
+            - Name: source-output
+            ActionTypeId:
+              Category: Build
+              Owner: AWS
+              Version: '1'
+              Provider: CodeBuild
+            OutputArtifacts:
+            - Name: build-out
+            Configuration:
+              ProjectName: !GetAtt Build.Outputs.BuildConfig
+            RunOrder: 1
+          - !Ref AWS::NoValue
+
+      ##########################################################
+      # Deployment Stage
+      ##########################################################
+      - Name: Deploy
+        Actions:
+
+        # Cloudform the deployment
+        - Name: GenerateDeployment
+          InputArtifacts:
+          - Name: build-out
+          ActionTypeId:
+            Category: Deploy
+            Owner: AWS
+            Version: '1'
+            Provider: CloudFormation
+          Configuration:
+            ChangeSetName: Deploy
+            ActionMode: CREATE_UPDATE
+            StackName: !Sub "codepipeline-deployment-${Env}"
+            Capabilities: CAPABILITY_NAMED_IAM
+            TemplatePath: build-out::ec2.json
+            RoleArn: !GetAtt CFNRole.Outputs.Role
+          RunOrder: 1
+

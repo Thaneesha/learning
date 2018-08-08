@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Role for executing cloud formation in a pipeline
+Parameters:
+  ArtifactBucket:
+    Type: String
+  Env:
+    Type: String
+  ProjectName:
+    Type: String
+Resources:
+  CFNRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-${Env}-cfn
+      Path: "/"
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - cloudformation.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Policies:
+      - PolicyName: root
+        PolicyDocument: {
+          "Statement": [
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "s3:GetObject"
+                        ],
+                        "Resource": [
+                          !Sub "arn:aws:s3:::${ArtifactBucket}",
+                          !Sub "arn:aws:s3:::${ArtifactBucket}/*"
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "logs:CreateLogGroup",
+                          "logs:CreateLogStream",
+                          "logs:PutLogEvents"
+                        ],
+                        "Resource": "arn:aws:logs:*"
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "cloudfront:*"
+                        ],
+                        "Resource": "*"
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "route53:ListResourceRecordSets",
+                          "route53:ListHostedZonesByName",
+                          "route53:ListHostedZones",
+                          "route53:GetHostedZone",
+                          "route53:ChangeResourceRecordSets",
+                          "route53:GetChange"
+                        ],
+                        "Resource": "*"
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "s3:*"
+                        ],
+                        "Resource": [
+                          !Sub "arn:aws:s3:::${DomainPrefix}${Env}.${Domain}",
+                          !Sub "arn:aws:s3:::${DomainPrefix}${Env}.${Domain}/*"
+                        ]
+                      }
+                      ]
+                    }
+Outputs:
+  Role:
+    Description: ARN of the Role
+    Value:
+      Fn::GetAtt:
+      - CFNRole
+      - Arn
+  Name:
+    Description: Name of the role
+    Value: !Ref CFNRole
