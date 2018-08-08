@@ -10,6 +10,7 @@ phases:
     commands:
       - echo "Building firts Application"
 artifacts:
+  type: zip
   files:
     - first.py
   discard-paths: yes
