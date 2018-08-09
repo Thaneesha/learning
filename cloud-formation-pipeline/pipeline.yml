@@ -7,15 +7,19 @@ Parameters:
     Default: "first-codepipeline"
   GitHubOAuthToken:
     Type: String
+    Default: ""
   RepoName:
     Type: String
-    Default: "codepipeline"
+    Default: "learning"
   ArtifactBucket:
     Type: String
     Default: "jenkins-test-8k"
   Env:
     Type: String
     Default: "dev"
+  Role:
+    Type: String
+    Default: "arn:aws:iam::505728423372:role/BIO"
   CloudFormTemplatePath:
     Type: String
     Default: "cloud-formation-template"
@@ -43,75 +47,29 @@ Resources:
   CFNRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub ${ProjectName}-${Env}-cfn
+      RoleName: "test-codepipeline"
       Path: "/"
       AssumeRolePolicyDocument:
         Statement:
         - Effect: Allow
           Principal:
-            Service:
-            - cloudformation.amazonaws.com
+            Service: ["codepipeline.amazonaws.com","codebuild.amazonaws.com"]
           Action:
           - sts:AssumeRole
       Policies:
-      - PolicyName: root
-        PolicyDocument: {
-          "Statement": [
-                      {
-                        "Effect": "Allow",
-                        "Action": [
-                          "s3:GetObject"
-                        ],
-                        "Resource": [
-                          !Sub "arn:aws:s3:::${ArtifactBucket}",
-                          !Sub "arn:aws:s3:::${ArtifactBucket}/*"
-                        ]
-                      },
-                      {
-                        "Effect": "Allow",
-                        "Action": [
-                          "logs:CreateLogGroup",
-                          "logs:CreateLogStream",
-                          "logs:PutLogEvents"
-                        ],
-                        "Resource": "arn:aws:logs:*"
-                      },
-                      {
-                        "Effect": "Allow",
-                        "Action": [
-                          "cloudfront:*"
-                        ],
-                        "Resource": "*"
-                      },
-                      {
-                        "Effect": "Allow",
-                        "Action": [
-                          "route53:ListResourceRecordSets",
-                          "route53:ListHostedZonesByName",
-                          "route53:ListHostedZones",
-                          "route53:GetHostedZone",
-                          "route53:ChangeResourceRecordSets",
-                          "route53:GetChange"
-                        ],
-                        "Resource": "*"
-                      },
-                      {
-                        "Effect": "Allow",
-                        "Action": [
-                          "s3:*"
-                        ],
-                        "Resource": [
-                          !Sub "arn:aws:s3:::${Env}",
-                          !Sub "arn:aws:s3:::${Env}/*"
-                        ]
-                      }
-                      ]
-                    }
+        - PolicyName: CodeBuildAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                - '*'
+                Effect: Allow
+                Resource: '*'
   BuildConfig:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: !Sub ${ProjectName}-codebuild-${BuildStep}
-      ServiceRole: !Ref Role
+      Name: "codebuild-bio"
+      ServiceRole: !Ref CFNRole
       Artifacts:
         Type: CODEPIPELINE
       Environment:
@@ -125,6 +83,13 @@ Resources:
           Value: !Ref RepoName
         - Name: ENV
           Value: !Ref Env
+      Tags:
+        -
+          Key: "Name"
+          Value: "CodeBuild-Bio"
+        -
+          Key: "ENV"
+          Value: "dev"
       Source:
         BuildSpec: !Ref BuildSpecFile
         Type: CODEPIPELINE
@@ -134,7 +99,7 @@ Resources:
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
-      Name: !Sub ${ProjectName}-${Env}
+      Name: "codepipeline-bio"
       RoleArn: !Ref Role
       ArtifactStore:
         Type: S3
@@ -158,7 +123,7 @@ Resources:
           OutputArtifacts:
           - Name: source-output
           Configuration:
-            Owner: cloudezrx
+            Owner: Thaneesha
             Repo: !Ref RepoName
             Branch: !Ref Branch
             OAuthToken: !Ref GitHubOAuthToken
@@ -185,7 +150,7 @@ Resources:
             OutputArtifacts:
             - Name: build-out
             Configuration:
-              ProjectName: !GetAtt Build.Outputs.BuildConfig
+              ProjectName: !Ref BuildConfig
             RunOrder: 1
           - !Ref AWS::NoValue
 
@@ -210,6 +175,6 @@ Resources:
             StackName: !Sub "codepipeline-deployment-${Env}"
             Capabilities: CAPABILITY_NAMED_IAM
             TemplatePath: build-out::ec2.json
-            RoleArn: !GetAtt CFNRole.Outputs.Role
+            RoleArn: !Ref Role
           RunOrder: 1
 
