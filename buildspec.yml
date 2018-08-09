@@ -12,5 +12,5 @@ phases:
 artifacts:
   type: zip
   files:
-    - first.py
+    - ec2.json
   discard-paths: yes
