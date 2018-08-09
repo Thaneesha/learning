@@ -14,7 +14,7 @@ phases:
       - echo "Creating pull request"
   post_build:
     commands:
-      - export GITHUB_TOKEN="725dee729890c86955c3590e6fb3decc89fb5f3a"
+      - export GITHUB_TOKEN="bb8d4d800b4ad8f127dc981b810dd3d62c255c74"
       - git clone https://${GITHUB_TOKEN}@github.com/Thaneesha/learning.git
       - cd learning
-      - hub pull-request -b master -h dev -m "Pull request from master to dev"
+      - hub pull-request -b master origin -h dev -m "Pull request from master to dev"
