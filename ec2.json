@@ -19,7 +19,7 @@
       {
         "Description": "Please provide the key Pair that should be used to launch the EC2 instance",
         "Type": "String",
-	"Default":"JenkinsHA",
+	"Default":"TASK1TRAINING_EC2",
         "ConstraintDescription": "It must be the name of an existing EC2 KeyPair."
       },
       "VPCIdentifier": 
