@@ -217,7 +217,8 @@ Resources:
         - !If
           - CreateBuildResources
           - Name: Merge
-            InputArtifacts: []
+            InputArtifacts: 
+            - Name: source-output
             ActionTypeId:
               Category: Build
               Owner: AWS
