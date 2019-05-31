@@ -1,0 +1,101 @@
+#! /usr/bin/perl
+
+use DBI;
+
+$ENV{'LD_LIBRARY_PATH'} = '/usr/local/freetds/lib:/usr/local/unixODBC/lib';
+$ENV{'ODBCHOME'} = '/usr/local/unixODBC';
+$ENV{'SYBASE'} = '/usr/local/freetds';
+$ENV{'DBI_DRIVER'} = 'ODBC';
+$ENV{'PATH'} = '/opt/gitlab/bin:/opt/gitlab/embedded/bin'. $ENV{"PATH"};
+
+
+$errors = 0;
+@error_list = ();
+%seen_error = ();
+while (<>) {
+#	chomp;
+#	next unless my($old,$new) =
+ #               m[ ^ ([0-9a-f]+) \s+   # old SHA-1
+  #              ([0-9a-f]+) \s+   # new SHA-1
+   #             refs/heads/master # ref
+    #            \s* $ ]x;
+	chomp $_;
+	($old,$new,$ref)=split(/\s+/,$_);
+	$old =~ s/^\s+|\s+$//g;
+	$new =~ s/^\s+|\s+$//g;
+	chomp(@commits = `git rev-list $old..$new`);
+	if ($?) {
+		warn "git rev-list $old..$new failed\n";
+		++$errors, next;
+	}
+	foreach $sha1 (@commits) {
+		$msg = `git cat-file commit $sha1`;
+		if ($?) {
+			warn "git cat-file commit $sha1 failed";
+			++$errors, next;
+		}
+		
+		$msg =~ s/\A.+? ^$ \s+//smx;
+		if ($msg =~ /^\[spr\_\d{1,4}\]/)
+		{
+			@array=split(/\]/,$msg);
+			$tmp=reverse($array[0]);
+			chop($tmp);
+			$spr_id_tmp=reverse($tmp);
+			($x,$spr_id)=split(/\_/,$spr_id_tmp);
+			$dbh1 = DBI->connect('dbi:ODBC:Server2','<username>','<password>');
+			$sth1 = $dbh1->prepare("SELECT Status_Id from ProductBacklog where ProductBacklogMaster_Id in (4,10,20,21,62,68)and ID = '$spr_id'");
+			$sth1->execute();
+			if ($sth1->rows == 0)
+			{
+				$spr_error_msg="Please provide valid Bug ID in commit message-->Entered commit message was:$msg\n";
+				push(@error_list,$spr_error_msg) unless $seen_error{$spr_id}++;
+			}	
+			else {
+				while (@data1 = $sth1->fetchrow_array()) {
+					if ( $data1[0] == "4" or $data1[0] == "5" or $data1[0] == "6" or $data1[0] == "9" )
+					{
+						$spr_error_msg1="Please provide open Bug ID in commit message-->Entered commit message was:$msg\n";
+						push(@error_list,$spr_error_msg1) unless $seen_error{$spr_id}++;
+					}
+				}
+			}
+		}
+		elsif ($msg =~ /^\[tdes\_\d\d\d\d\]/)
+		{
+			@array_bug=split(/\]/,$msg);
+			$tmp=reverse($array_bug[0]);
+			chop($tmp);
+			$bug_id=reverse($tmp);
+			$dbh = DBI->connect('dbi:ODBC:Server1','<username>','<password>');
+			$sth = $dbh->prepare("SELECT State_Id FROM IssueInfo where IssueId = '$bug_id'");
+			$sth->execute();
+			if ($sth->rows == 0)
+			{
+				$error_msg="Please provide valid bug ID in commit message-->Entered commit message was:$msg\n";
+				push(@error_list,$error_msg) unless $seen_error{$bug_id}++;
+			}	
+			else {
+				while (@data = $sth->fetchrow_array()) 
+				{
+					chomp @data;
+					if ( $data[0] == "403" ){
+						$error_msg1="Please provide open Bug ID as commit message-->Entered commit message was:$msg\n";
+						push(@error_list,$error_msg1) unless $seen_error{$bug_id}++;
+					}
+				}
+			}
+		}
+		else{
+                        $error_msg2="Please provide valid Bug or ID as commit message-->Example\:\[tdes\_0123\] Commit message or \[spr\_0123\] Commit message-->Entered commit message was:$msg\n";
+			push(@error_list,$error_msg2);
+                }
+	}
+	$len=@error_list;
+	if($len >= 1)
+	{
+		print "@error_list";
+		++$errors;
+	}
+}
+exit $errors == 0 ? 0 : 1;
